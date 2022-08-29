@@ -38,26 +38,31 @@ public class ReportRestControllers {
     public Mono<ResponseEntity<Object>> reportsByClient(@PathVariable String idClient)
     {
         log.info("[INI] Reports By Client");
-        Mono<List<Report>> listPasive = pasiveService.getPasives().flatMap(reponse -> Mono.just(reponse.getData().stream()
-                .filter(x -> x.getClientId().equals(idClient)).map(r -> Report.builder()
-                        .idProduct(r.getId())
-                        .idClient(r.getClientId())
-                        .type(r.getPasivesType())
-                        .build())
-                .collect(Collectors.toList())));
+        var pasiveList = pasiveService.getPasives()
+                .flatMap(active -> Mono.just(active.getData().stream()
+                                .filter(a -> a.getClientId().equals(idClient))
+                                .map(r -> Report.builder()
+                                        .idClient(r.getClientId())
+                                        .idProduct(r.getId())
+                                        .type(r.getPasivesType())
+                                        .build())
+                                .collect(Collectors.toList()))
+                        );
 
-        Mono<List<Report>> listActive = activeService.getActives()
+        var activeList = activeService.getActives()
                 .flatMap(passive -> Mono.just(passive.getData().stream()
-                        .filter(x -> x.getClientId().equals(idClient))
-                        .map(r -> Report.builder()
-                                .idClient(r.getClientId())
-                                .idProduct(r.getId())
-                                .type(r.getActiveType())
-                                .build()).collect(Collectors.toList())));
+                                .filter(x -> x.getClientId().equals(idClient))
+                                .map(r -> Report.builder()
+                                        .idClient(r.getClientId())
+                                        .idProduct(r.getId())
+                                        .type(r.getActiveType())
+                                        .build()).collect(Collectors.toList()))
+                        );
+        List<Report> reportList = new ArrayList<>();
+        reportList.addAll(pasiveList.block());
+        reportList.addAll(activeList.block());
 
-        //Mono<List<Report>> list = Mono.just(Optional.of(listPasive.concatWith(listActive).collect(Collectors.toList())));
-
-        return listPasive
+        return Mono.just(reportList)
                 .flatMap(reports -> Mono.just(ResponseHandler.response("Done", HttpStatus.OK, reports)))
                 .onErrorResume(error -> Mono.just(ResponseHandler.response(error.getMessage(), HttpStatus.BAD_REQUEST, null)))
                 .doFinally(fin -> log.info("[END] Reports By Client"));
@@ -70,31 +75,33 @@ public class ReportRestControllers {
         LocalDateTime localDateTimeMax = Utils.parseLocalDate(max);
 
         log.info("[INI] Reports By Date");
-        Mono<List<Report>> listPasive = pasiveService.getPasives()
-                .flatMap(passive -> Mono.just(passive.getData().stream()
-                        .filter(x -> Utils.BetweenDates(x.getDateRegister(), localDateTimeMin, localDateTimeMax) && x.getClientId().equals(idClient))
+        var pasiveList = pasiveService.getPasives()
+                .flatMap(active -> Mono.just(active.getData().stream()
+                        .filter(a -> Utils.BetweenDates(a.getDateRegister(), localDateTimeMin, localDateTimeMax) && a.getClientId().equals(idClient))
                         .map(r -> Report.builder()
                                 .idClient(r.getClientId())
                                 .idProduct(r.getId())
                                 .type(r.getPasivesType())
                                 .build())
-                        .collect(Collectors.toList())));
+                        .collect(Collectors.toList()))
+                );
 
-        Mono<List<Report>> listActive = activeService.getActives()
+        var activeList = activeService.getActives()
                 .flatMap(passive -> Mono.just(passive.getData().stream()
                         .filter(x -> Utils.BetweenDates(x.getDateRegister(), localDateTimeMin, localDateTimeMax) && x.getClientId().equals(idClient))
                         .map(r -> Report.builder()
                                 .idClient(r.getClientId())
                                 .idProduct(r.getId())
                                 .type(r.getActiveType())
-                                .build())
-                        .collect(Collectors.toList())));
+                                .build()).collect(Collectors.toList()))
+                );
+        List<Report> reportList = new ArrayList<>();
+        reportList.addAll(pasiveList.block());
+        reportList.addAll(activeList.block());
 
-        //Mono<List<Report>> list = Stream.concat(listActive.map(r->), listPasive).collect(Collectors.toList());
-
-        return listPasive
-            .flatMap(reports -> Mono.just(ResponseHandler.response("Done", HttpStatus.OK, reports)))
-            .onErrorResume(error -> Mono.just(ResponseHandler.response(error.getMessage(), HttpStatus.BAD_REQUEST, null)))
-            .doFinally(fin -> log.info("[END] Reports By Date"));
+        return Mono.just(reportList)
+                .flatMap(reports -> Mono.just(ResponseHandler.response("Done", HttpStatus.OK, reports)))
+                .onErrorResume(error -> Mono.just(ResponseHandler.response(error.getMessage(), HttpStatus.BAD_REQUEST, null)))
+                .doFinally(fin -> log.info("[END] Reports By Date"));
     }
 }
