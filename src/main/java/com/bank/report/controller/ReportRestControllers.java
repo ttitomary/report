@@ -18,6 +18,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -39,67 +40,128 @@ public class ReportRestControllers {
     {
         log.info("[INI] Reports By Client");
         var pasiveList = pasiveService.getPasives()
-                .flatMap(active -> Mono.just(active.getData().stream()
+                .flatMap(response -> {
+                    log.info(response.getData().toString());
+                    if(!response.getData().isEmpty()){
+                        var list = response.getData()
+                                .stream()
                                 .filter(a -> a.getClientId().equals(idClient))
                                 .map(r -> Report.builder()
                                         .idClient(r.getClientId())
                                         .idProduct(r.getId())
                                         .type(r.getPasivesType())
+                                        .date(r.getCreatedDate())
                                         .build())
-                                .collect(Collectors.toList()))
-                        );
+                                .collect(Collectors.toList());
+                        return Mono.just(list);
+                    }
+                    else{
+                        return Mono.just(Collections.emptyList());
+                    }
+                });
+        log.info(pasiveList.toString());
 
         var activeList = activeService.getActives()
-                .flatMap(passive -> Mono.just(passive.getData().stream()
-                                .filter(x -> x.getClientId().equals(idClient))
+                .flatMap(response -> {
+                    log.info(response.getData().toString());
+                    if(!response.getData().isEmpty()){
+                        var list = response.getData()
+                                .stream()
+                                .filter(a -> a.getClientId().equals(idClient))
                                 .map(r -> Report.builder()
                                         .idClient(r.getClientId())
                                         .idProduct(r.getId())
                                         .type(r.getActiveType())
-                                        .build()).collect(Collectors.toList()))
-                        );
-        List<Report> reportList = new ArrayList<>();
-        reportList.addAll(pasiveList.block());
-        reportList.addAll(activeList.block());
+                                        .date(r.getDateRegister())
+                                        .build())
+                                .collect(Collectors.toList());
+                        return Mono.just(list);
+                    }
+                    else{
+                        return Mono.just(Collections.emptyList());
+                    }
+                });
+        log.info(activeList.toString());
 
-        return Mono.just(reportList)
+        var fluxPasive = pasiveList.flatMapMany(Flux::fromIterable);
+        log.info(fluxPasive.toString());
+
+        var fluxActive = activeList.flatMapMany(Flux::fromIterable);
+        log.info(fluxActive.toString());
+
+        var reportList = Flux.merge(fluxPasive,fluxActive);
+        log.info(reportList.toString());
+
+        return reportList.collectList()
                 .flatMap(reports -> Mono.just(ResponseHandler.response("Done", HttpStatus.OK, reports)))
                 .onErrorResume(error -> Mono.just(ResponseHandler.response(error.getMessage(), HttpStatus.BAD_REQUEST, null)))
                 .doFinally(fin -> log.info("[END] Reports By Client"));
     }
 
-    @GetMapping("/general/{idClient}")
-    public Mono<ResponseEntity<Object>> reportsByDate(@PathVariable String idClient, @Validated @RequestParam("max") String max, @Validated @RequestParam("min") String min)
+    @GetMapping("/general")
+    public Mono<ResponseEntity<Object>> reportsByDate(@Validated @RequestParam("idClient") String idClient, @Validated @RequestParam("max") String max, @Validated @RequestParam("min") String min)
     {
         LocalDateTime localDateTimeMin = Utils.parseLocalDate(min);
         LocalDateTime localDateTimeMax = Utils.parseLocalDate(max);
 
         log.info("[INI] Reports By Date");
+        log.info(localDateTimeMin.toString());
+        log.info(localDateTimeMax.toString());
+
         var pasiveList = pasiveService.getPasives()
-                .flatMap(active -> Mono.just(active.getData().stream()
-                        .filter(a -> Utils.BetweenDates(a.getDateRegister(), localDateTimeMin, localDateTimeMax) && a.getClientId().equals(idClient))
-                        .map(r -> Report.builder()
-                                .idClient(r.getClientId())
-                                .idProduct(r.getId())
-                                .type(r.getPasivesType())
-                                .build())
-                        .collect(Collectors.toList()))
-                );
+                .flatMap(response -> {
+                    log.info(response.getData().toString());
+                    if(!response.getData().isEmpty()){
+                        var list = response.getData()
+                                .stream()
+                                .filter(a -> Utils.BetweenDates(a.getCreatedDate(), localDateTimeMin, localDateTimeMax) && a.getClientId().equals(idClient))
+                                .map(r -> Report.builder()
+                                        .idClient(r.getClientId())
+                                        .idProduct(r.getId())
+                                        .type(r.getPasivesType())
+                                        .date(r.getCreatedDate())
+                                        .build())
+                                .collect(Collectors.toList());
+                        return Mono.just(list);
+                    }
+                    else{
+                        return Mono.just(Collections.emptyList());
+                    }
+                });
+        log.info(pasiveList.toString());
 
         var activeList = activeService.getActives()
-                .flatMap(passive -> Mono.just(passive.getData().stream()
-                        .filter(x -> Utils.BetweenDates(x.getDateRegister(), localDateTimeMin, localDateTimeMax) && x.getClientId().equals(idClient))
-                        .map(r -> Report.builder()
-                                .idClient(r.getClientId())
-                                .idProduct(r.getId())
-                                .type(r.getActiveType())
-                                .build()).collect(Collectors.toList()))
-                );
-        List<Report> reportList = new ArrayList<>();
-        reportList.addAll(pasiveList.block());
-        reportList.addAll(activeList.block());
+                .flatMap(response -> {
+                    log.info(response.getData().toString());
+                    if(!response.getData().isEmpty()){
+                        var list = response.getData()
+                                .stream()
+                                .filter(a -> Utils.BetweenDates(a.getDateRegister(), localDateTimeMin, localDateTimeMax) && a.getClientId().equals(idClient))
+                                .map(r -> Report.builder()
+                                        .idClient(r.getClientId())
+                                        .idProduct(r.getId())
+                                        .type(r.getActiveType())
+                                        .date(r.getDateRegister())
+                                        .build())
+                                .collect(Collectors.toList());
+                        return Mono.just(list);
+                    }
+                    else{
+                        return Mono.just(Collections.emptyList());
+                    }
+                });
+        log.info(activeList.toString());
 
-        return Mono.just(reportList)
+        var fluxPasive = pasiveList.flatMapMany(Flux::fromIterable);
+        log.info(fluxPasive.toString());
+
+        var fluxActive = activeList.flatMapMany(Flux::fromIterable);
+        log.info(fluxActive.toString());
+
+        var reportList = Flux.merge(fluxPasive,fluxActive);
+        log.info(reportList.toString());
+
+        return reportList.collectList()
                 .flatMap(reports -> Mono.just(ResponseHandler.response("Done", HttpStatus.OK, reports)))
                 .onErrorResume(error -> Mono.just(ResponseHandler.response(error.getMessage(), HttpStatus.BAD_REQUEST, null)))
                 .doFinally(fin -> log.info("[END] Reports By Date"));

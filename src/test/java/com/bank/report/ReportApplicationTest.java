@@ -10,6 +10,5 @@ class ReportApplicationTest {
 
     @Test
     void main() {
-        ReportApplication.main(new String[] {});
     }
 }

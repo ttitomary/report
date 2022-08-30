@@ -1,5 +1,6 @@
 package com.bank.report.models.documents;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.Data;
 import org.springframework.data.annotation.Id;
 
@@ -11,5 +12,6 @@ public class Pasive {
     private String id;
     private String clientId;
     private String pasivesType;
-    private LocalDateTime dateRegister;
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+    private LocalDateTime createdDate;
 }
